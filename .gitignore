@@ -77,5 +77,6 @@ uv.lock
 .vscode/
 # Jetbrains
 .cache/
+.idea/
 # vim
 *.swp

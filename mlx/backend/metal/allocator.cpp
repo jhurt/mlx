@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <cassert>
 #include <cstdlib>
+#include <chrono>
 
 namespace mlx::core {
 
@@ -157,6 +158,13 @@ Buffer MetalAllocator::malloc(size_t size) {
       throw std::runtime_error(msg.str());
     }
     lk.lock();
+
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    long long millis = duration_cast<std::chrono::milliseconds>(duration).count();
+    auto label = "mlx_" + std::to_string(millis);
+    buf->setLabel(NS::String::string(label.c_str(), NS::UTF8StringEncoding));
+
     num_resources_++;
     if (!buf->heap()) {
       residency_sets_.insert(buf);
@@ -185,6 +193,13 @@ void MetalAllocator::free(Buffer buffer) {
   if (buf == nullptr) {
     return;
   }
+
+  if (const auto label = buf->label();
+      !label || std::strncmp(label->utf8String(), "mlx_", 4) != 0) {
+    residency_sets_.erase(buf);
+    return;
+  }
+
   std::unique_lock lk(mutex_);
   active_memory_ -= buf->length();
   if (get_cache_memory() < max_pool_size_) {
